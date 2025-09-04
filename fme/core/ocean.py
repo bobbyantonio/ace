@@ -1,8 +1,10 @@
+
+import os
 import dataclasses
 import datetime
-
+import polling2
 import torch
-
+import xarray as xr
 from fme.core.typing_ import TensorDict, TensorMapping
 
 from .atmosphere_data import AtmosphereData
@@ -27,6 +29,20 @@ class SlabOceanConfig:
     def names(self) -> list[str]:
         return [self.mixed_layer_depth_name, self.q_flux_name]
 
+@dataclasses.dataclass
+class FromFileOceanConfig:
+    """
+    Configuration for a ocean model where the ocean state is read from files (current workaround
+    for a CPU-intensive dynamical ocean).
+
+    Parameters:
+        router_folder: Folder containing the router files.
+        atmosphere_timestep_hours: Timestep of the atmosphere model in hours.
+    """
+
+    router_folder: str
+    atmosphere_timestep_hours: int
+    polling_timeout: int = 60*10  # 10 minutes
 
 @dataclasses.dataclass
 class OceanConfig:
@@ -46,6 +62,7 @@ class OceanConfig:
     ocean_fraction_name: str
     interpolate: bool = False
     slab: SlabOceanConfig | None = None
+    from_file: FromFileOceanConfig | None = None
 
     def build(
         self,
@@ -91,12 +108,19 @@ class Ocean:
             interpolate=config.interpolate,
         )
         self._forcing_names = config.forcing_names
-        if config.slab is None:
+        if config.slab is None and config.dynamic is None:
             self.type = "prescribed"
-        else:
+        elif config.slab is not None:
             self.type = "slab"
             self.mixed_layer_depth_name = config.slab.mixed_layer_depth_name
             self.q_flux_name = config.slab.q_flux_name
+        elif config.from_file is not None:
+            self.type = "from_file"
+            self.router_folder = config.from_file.router_folder
+            self.atmosphere_timestep_hours = config.from_file.atmosphere_timestep_hours
+            self.timestep = 0
+            self.polling_timeout = 60*10  # 10 minutes
+            
         self.timestep = timestep
 
     def __call__(
@@ -127,6 +151,14 @@ class Ocean:
                 input_data[self.surface_temperature_name]
                 + temperature_tendency * self.timestep.total_seconds()
             )
+        elif self.type == "from_file":
+            if self.timestep == 0:
+                next_step_temperature = input_data[self.surface_temperature_name]
+            else:
+                ocean_ds = polling2.poll(lambda: xr.load_dataset(os.path.join(self.router_folder, f"oce2atm_{self.timestep * self.atmosphere_timestep_hours}.nc")), 
+                       ignore_exceptions=(IOError, ValueError, FileNotFoundError), 
+                       timeout=self.polling_timeout,
+                       step=0.1).isel(time=0)
         else:
             raise NotImplementedError(f"Ocean type={self.type} is not implemented")
 

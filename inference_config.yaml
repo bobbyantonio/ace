@@ -1,0 +1,27 @@
+experiment_dir: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/predictions/ace2_test
+n_forward_steps: 1 
+forward_steps_in_memory: 1
+checkpoint_path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/ace2_era5_ckpt.tar
+logging:
+  log_to_screen: true
+  log_to_wandb: false
+  log_to_file: true
+  project: ace
+stepper_override: 
+  ocean:
+    surface_temperature_name: surface_temperature
+    ocean_fraction_name: ocean_fraction
+    interpolate: True
+initial_condition:
+  path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/initial_conditions/ic_2020.nc
+  start_indices:
+    times:
+      - "2020-01-01T00:00:00"
+forcing_loader:
+  dataset:
+    data_path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/forcing_data
+  num_data_workers: 2
+data_writer:
+  save_prediction_files: true
+  save_monthly_files: false
+  names: ["TMP2m", "VGRD10m", "PRATEsfc"]
