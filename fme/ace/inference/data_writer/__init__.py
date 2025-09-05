@@ -1,2 +1,2 @@
 from .dataset_metadata import DatasetMetadata
-from .main import DataWriter, DataWriterConfig, PairedDataWriter
+from .main import DataWriter, DataWriterConfig, PairedDataWriter, RawDataWriter

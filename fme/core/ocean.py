@@ -1,5 +1,7 @@
 
 import os
+import pickle
+import numpy as np
 import dataclasses
 import datetime
 import polling2
@@ -41,8 +43,8 @@ class FromFileOceanConfig:
     """
 
     router_folder: str
-    atmosphere_timestep_hours: int
     polling_timeout: int = 60*10  # 10 minutes
+    sea_ice_fraction_name: str = None
 
 @dataclasses.dataclass
 class OceanConfig:
@@ -101,6 +103,7 @@ class Ocean:
         """
         self.surface_temperature_name = config.surface_temperature_name
         self.ocean_fraction_name = config.ocean_fraction_name
+
         self.prescriber = Prescriber(
             prescribed_name=config.surface_temperature_name,
             mask_name=config.ocean_fraction_name,
@@ -108,7 +111,7 @@ class Ocean:
             interpolate=config.interpolate,
         )
         self._forcing_names = config.forcing_names
-        if config.slab is None and config.dynamic is None:
+        if config.slab is None and config.from_file is None:
             self.type = "prescribed"
         elif config.slab is not None:
             self.type = "slab"
@@ -117,11 +120,12 @@ class Ocean:
         elif config.from_file is not None:
             self.type = "from_file"
             self.router_folder = config.from_file.router_folder
-            self.atmosphere_timestep_hours = config.from_file.atmosphere_timestep_hours
-            self.timestep = 0
-            self.polling_timeout = 60*10  # 10 minutes
+            self.timestep_counter = 0
+            self.polling_timeout = config.from_file.polling_timeout
+            self.sea_ice_fraction_name = config.from_file.sea_ice_fraction_name
             
         self.timestep = timestep
+        self.timestep_hrs = int(self.timestep.seconds / 3600)
 
     def __call__(
         self,
@@ -141,6 +145,7 @@ class Ocean:
         """
         if self.type == "prescribed":
             next_step_temperature = target_data[self.surface_temperature_name]
+            prescriber_dict = {self.surface_temperature_name: next_step_temperature}
         elif self.type == "slab":
             temperature_tendency = mixed_layer_temperature_tendency(
                 AtmosphereData(gen_data).net_surface_energy_flux_without_frozen_precip,
@@ -151,21 +156,48 @@ class Ocean:
                 input_data[self.surface_temperature_name]
                 + temperature_tendency * self.timestep.total_seconds()
             )
+            
+            prescriber_dict = {self.surface_temperature_name: next_step_temperature}
+            
         elif self.type == "from_file":
-            if self.timestep == 0:
-                next_step_temperature = input_data[self.surface_temperature_name]
-            else:
-                ocean_ds = polling2.poll(lambda: xr.load_dataset(os.path.join(self.router_folder, f"oce2atm_{self.timestep * self.atmosphere_timestep_hours}.nc")), 
-                       ignore_exceptions=(IOError, ValueError, FileNotFoundError), 
-                       timeout=self.polling_timeout,
-                       step=0.1).isel(time=0)
+
+            # Write generated data to file for the router to read
+            flux_dict = {k: gen_data[k].cpu().numpy() for k in ['LHTFLsfc', 'SHTFLsfc', 'DLWRFsfc', 'DSWRFsfc', 'PRATEsfc']}
+            with open(os.path.join(self.router_folder, f"ace2_{(self.timestep_counter + 1) * self.timestep_hrs}h.pkl"), 'wb+') as ofh:
+                pickle.dump(flux_dict, ofh)
+
+            # Load ocean data. Note, this must be on a 180 x 360 grid.
+            ocean_ds = polling2.poll(lambda: xr.load_dataset(os.path.join(self.router_folder, f"oce2atm_{(self.timestep_counter + 1) * self.timestep_hrs}h.nc")),
+                    ignore_exceptions=(IOError, ValueError, FileNotFoundError),
+                    timeout=self.polling_timeout,
+                    step=0.1).isel(time=0).transpose('latitude', 'longitude')
+            self.timestep_counter += 1
+
+            # Make sure all SSTs under sea ice are set to just above freezing point of salt water, as done by ERA5
+            ice_frac = ocean_ds['sea_ice_fraction'].fillna(0.0)
+            sst_da = (1 - ice_frac) * ocean_ds['sea_surface_temperature'] + ice_frac * 271.45972 * xr.ones_like(ocean_ds['sea_surface_temperature'])
+            
+            device = gen_data[self.surface_temperature_name].device
+            sst_array = torch.tensor(sst_da.values, dtype=torch.float32).to(device)
+            ice_frac_array = torch.tensor(ice_frac.values, dtype=torch.float32).to(device)
+
+            sst_array = sst_array[None, :, :] # Add batch dimension
+            ice_frac_array = ice_frac_array[None, :, :] # Add batch dimension
+            
+            # Make sure there aren't any null values in the SST (will be interpolated )
+            next_step_temperature = torch.where(torch.isnan(sst_array), gen_data[self.surface_temperature_name], sst_array)
+            
+            # Prescribe both SST and sea ice fraction
+            prescriber_dict = {self.surface_temperature_name: next_step_temperature,
+                               self.sea_ice_fraction_name: ice_frac_array}
+                
         else:
             raise NotImplementedError(f"Ocean type={self.type} is not implemented")
 
         return self.prescriber(
             target_data,
             gen_data,
-            {self.surface_temperature_name: next_step_temperature},
+            prescriber_dict,
         )
 
     @property

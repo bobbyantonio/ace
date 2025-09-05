@@ -26,7 +26,7 @@ from fme.ace.data_loading.inference import (
     InferenceInitialConditionIndices,
     TimestampList,
 )
-from fme.ace.inference.data_writer import DataWriterConfig, PairedDataWriter
+from fme.ace.inference.data_writer import DataWriterConfig, RawDataWriter
 from fme.ace.inference.data_writer.dataset_metadata import DatasetMetadata
 from fme.ace.stepper import (
     Stepper,
@@ -204,23 +204,23 @@ class InferenceConfig:
         logging.info(f"Loading trained model checkpoint from {self.checkpoint_path}")
         return load_stepper_config(self.checkpoint_path, self.stepper_override)
 
+    
     def get_data_writer(
         self,
         n_initial_conditions: int,
-        timestep: datetime.timedelta,
         coords: Mapping[str, np.ndarray],
         variable_metadata: Mapping[str, VariableMetadata],
-    ) -> PairedDataWriter:
-        return self.data_writer.build_paired(
-            experiment_dir=self.experiment_dir,
-            # each batch contains all samples, for different times
+    ) -> RawDataWriter:
+        return  RawDataWriter(
+            path=self.experiment_dir,
+            label="autoregressive_predictions.nc",
             n_initial_conditions=n_initial_conditions,
-            n_timesteps=self.n_forward_steps,
-            timestep=timestep,
+            save_names=['TMP2m'],
             variable_metadata=variable_metadata,
             coords=coords,
             dataset_metadata=DatasetMetadata.from_env(),
         )
+    
         
 inference_config_path = '/home/a/antonio/repos/ace/inference_config.yaml'
 config_data = prepare_config(inference_config_path)
@@ -231,6 +231,9 @@ config = dacite.from_dict(
 )
 config.forcing_loader.num_data_workers = 2
 # prepare_directory(config.experiment_dir, config_data)
+
+# Make sure that experiment directory exists
+os.makedirs(config.experiment_dir, exist_ok=True)
 
 
 stepper_config = config.load_stepper_config()
@@ -283,6 +286,11 @@ aggregator = config.aggregator.build(
     output_dir=config.experiment_dir,
 )
 
+# writer = config.get_data_writer(
+#         n_initial_conditions=1,
+#         coords=data.coords,
+#         variable_metadata=variable_metadata,
+#     )
 
 run_inference(
         predict=stepper.predict_paired,

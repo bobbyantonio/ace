@@ -1,5 +1,5 @@
 experiment_dir: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/predictions/ace2_test
-n_forward_steps: 1 
+n_forward_steps: 5
 forward_steps_in_memory: 1
 checkpoint_path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/ace2_era5_ckpt.tar
 logging:
@@ -12,6 +12,10 @@ stepper_override:
     surface_temperature_name: surface_temperature
     ocean_fraction_name: ocean_fraction
     interpolate: True
+    from_file:
+      sea_ice_fraction_name: sea_ice_fraction
+      router_folder: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/router_data
+      polling_timeout: 600
 initial_condition:
   path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/initial_conditions/ic_2020.nc
   start_indices:
