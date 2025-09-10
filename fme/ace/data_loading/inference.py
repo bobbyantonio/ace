@@ -197,7 +197,7 @@ class InferenceDataset(torch.utils.data.Dataset):
         total_forward_steps: int,
         requirements: DataRequirements,
         surface_temperature_name: str | None = None,
-        ocean_fraction_name: str | None = None,
+        ocean_fraction_name: str | None = None
     ):
         if isinstance(config.dataset, XarrayDataConfig):
             dataset = XarrayDataset(
@@ -210,9 +210,10 @@ class InferenceDataset(torch.utils.data.Dataset):
         self._forward_steps_in_memory = requirements.n_timesteps - 1
         self._total_forward_steps = total_forward_steps
         self._perturbations = config.perturbations
-        self._surface_temperature_name = surface_temperature_name
-        self._ocean_fraction_name = ocean_fraction_name
         self._n_initial_conditions = config.n_initial_conditions
+        # self._surface_temperature_name = surface_temperature_name
+        # self._ocean_fraction_name = ocean_fraction_name
+        
         if isinstance(config.start_indices, TimestampList):
             self._start_indices = config.start_indices.as_indices(
                 self._dataset.all_times
@@ -223,19 +224,12 @@ class InferenceDataset(torch.utils.data.Dataset):
         if isinstance(self._properties.horizontal_coordinates, LatLonCoordinates):
             self._lats, self._lons = self._properties.horizontal_coordinates.meshgrid
         else:
-            if self._perturbations is not None:
+            if (self._perturbations is not None):
                 raise ValueError(
-                    "Currently, SST perturbations are only supported \
+                    "Currently, perturbations are only supported \
                     for lat/lon coordinates."
                 )
-        if self._perturbations is not None and (
-            self._surface_temperature_name is None or self._ocean_fraction_name is None
-        ):
-            raise ValueError(
-                "No ocean configuration found, \
-                SST perturbations require an ocean configuration."
-            )
-
+                
         self._persistence_data: BatchData | None = None
         if config.persistence_names is not None:
             first_sample = self._get_batch_data(0)
@@ -262,27 +256,38 @@ class InferenceDataset(torch.utils.data.Dataset):
             window_time_slice = slice(i_window_start, i_window_end)
             tensors, time = self._dataset.get_sample_by_time_slice(window_time_slice)
             if self._perturbations is not None:
-                if (
-                    self._surface_temperature_name is None
-                    or self._ocean_fraction_name is None
-                ):
-                    raise ValueError(
-                        "Surface temperature and ocean fraction names must be provided \
-                        to apply SST perturbations."
-                    )
+
                 logging.debug("Applying SST perturbations to forcing data")
                 for perturbation in self._perturbations.perturbations:
+
                     perturbation.apply_perturbation(
-                        tensors[self._surface_temperature_name],
+                        tensors,
                         self._lats,
                         self._lons,
-                        tensors[self._ocean_fraction_name],
                     )
+
+            # if self._sea_ice_perturbations is not None:
+            #     if (
+            #         self._sea_ice_fraction_name is None
+            #     ):
+            #         raise ValueError(
+            #             "Sea ice fraction name must be provided \
+            #             to apply sea ice perturbations."
+            #         )
+            #     logging.debug("Applying sea ice perturbations to forcing data")
+            #     for perturbation in self._sea_ice_perturbations.perturbations:
+            #         perturbation.apply_perturbation(
+            #             tensors[self._sea_ice_fraction_name],
+            #             self._lats,
+            #             self._lons,
+            #             tensors[self._sea_ice_fraction_name],
+            #         )
             sample_tuples.append((tensors, time))
         return BatchData.from_sample_tuples(
             sample_tuples,
             horizontal_dims=list(self.properties.horizontal_coordinates.dims),
         )
+
 
     def __getitem__(self, index) -> BatchData:
         dist = Distributed.get_instance()

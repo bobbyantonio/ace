@@ -169,6 +169,8 @@ def get_inference_data(
             set to None if no ocean temperature prescribing is being used.
         ocean_fraction_name: Name of the ocean fraction variable. Can be set to None
             if no ocean temperature prescribing is being used.
+        sea_ice_fraction_name: Name of the sea ice fraction variable. Can be set to
+            None if no sea ice perturbations are being used.
 
     Returns:
         A data loader for inference with coordinates and metadata.
@@ -178,7 +180,7 @@ def get_inference_data(
         total_forward_steps,
         window_requirements,
         surface_temperature_name,
-        ocean_fraction_name,
+        ocean_fraction_name
     )
     properties = dataset.properties
 
@@ -219,6 +221,7 @@ def get_forcing_data(
     initial_condition: PrognosticState,
     surface_temperature_name: str | None = None,
     ocean_fraction_name: str | None = None,
+    sea_ice_fraction_name: str | None = None
 ) -> InferenceGriddedData:
     """Return a GriddedData loader for forcing data based on the initial condition.
     This function determines the start indices for the forcing data based on the initial
@@ -234,6 +237,8 @@ def get_forcing_data(
             set to None if no ocean temperature prescribing is being used.
         ocean_fraction_name: Name of the ocean fraction variable. Can be set to None
             if no ocean temperature prescribing is being used.
+        sea_ice_fraction_name: Name of the sea ice fraction variable. Can be set to
+            None if no sea ice perturbations are being used.
 
     Returns:
         A data loader for forcing data with coordinates and metadata.
@@ -268,5 +273,5 @@ def get_forcing_data(
         window_requirements=window_requirements,
         initial_condition=initial_condition,
         surface_temperature_name=surface_temperature_name,
-        ocean_fraction_name=ocean_fraction_name,
+        ocean_fraction_name=ocean_fraction_name
     )

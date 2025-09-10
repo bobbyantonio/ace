@@ -162,15 +162,20 @@ class Ocean:
         elif self.type == "from_file":
 
             # Write generated data to file for the router to read
-            flux_dict = {k: gen_data[k].cpu().numpy() for k in ['LHTFLsfc', 'SHTFLsfc', 'DLWRFsfc', 'DSWRFsfc', 'PRATEsfc']}
+            flux_dict = {k: gen_data[k].cpu().numpy() for k in ['surface_temperature', 'LHTFLsfc', 'SHTFLsfc', 'DLWRFsfc', 'DSWRFsfc', 'PRATEsfc']}
             with open(os.path.join(self.router_folder, f"ace2_{(self.timestep_counter + 1) * self.timestep_hrs}h.pkl"), 'wb+') as ofh:
                 pickle.dump(flux_dict, ofh)
 
             # Load ocean data. Note, this must be on a 180 x 360 grid.
-            ocean_ds = polling2.poll(lambda: xr.load_dataset(os.path.join(self.router_folder, f"oce2atm_{(self.timestep_counter + 1) * self.timestep_hrs}h.nc")),
-                    ignore_exceptions=(IOError, ValueError, FileNotFoundError),
-                    timeout=self.polling_timeout,
-                    step=0.1).isel(time=0).transpose('latitude', 'longitude')
+            # ocean_ds = polling2.poll(lambda: xr.load_dataset(os.path.join(self.router_folder, f"oce2atm_{(self.timestep_counter + 1) * self.timestep_hrs}h.nc")),
+            #         ignore_exceptions=(IOError, ValueError, FileNotFoundError),
+            #         timeout=self.polling_timeout,
+            #         step=0.1).isel(time=0).transpose('latitude', 'longitude')
+            ocean_ds = xr.ones_like(xr.load_dataset(os.path.join(self.router_folder, f"oce2atm_6h.nc")).isel(time=0).transpose('latitude', 'longitude'))
+            # Set ice frac to zero and SST to 290K for testing
+            ocean_ds['sea_ice_fraction'] = xr.zeros_like(ocean_ds['sea_ice_fraction'])
+            ocean_ds['sea_surface_temperature'] = xr.full_like(ocean_ds['sea_surface_temperature'], 320.0)
+            
             self.timestep_counter += 1
 
             # Make sure all SSTs under sea ice are set to just above freezing point of salt water, as done by ERA5

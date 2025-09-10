@@ -277,7 +277,7 @@ def run_inference_from_config(config: InferenceConfig):
         window_requirements=data_requirements,
         initial_condition=initial_condition,
         surface_temperature_name=stepper.surface_temperature_name,
-        ocean_fraction_name=stepper.ocean_fraction_name,
+        ocean_fraction_name=stepper.ocean_fraction_name
     )
     if not config.allow_incompatible_dataset:
         try:

@@ -1,9 +1,11 @@
+import os
+import sys
 import copy
 import dataclasses
 import datetime
 import logging
-import os
-import sys
+from argparse import ArgumentParser
+
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
@@ -26,7 +28,7 @@ from fme.ace.data_loading.inference import (
     InferenceInitialConditionIndices,
     TimestampList,
 )
-from fme.ace.inference.data_writer import DataWriterConfig, RawDataWriter
+from fme.ace.inference.data_writer import DataWriterConfig, DataWriter, PairedDataWriter
 from fme.ace.inference.data_writer.dataset_metadata import DatasetMetadata
 from fme.ace.stepper import (
     Stepper,
@@ -203,99 +205,184 @@ class InferenceConfig:
     def load_stepper_config(self) -> StepperConfig:
         logging.info(f"Loading trained model checkpoint from {self.checkpoint_path}")
         return load_stepper_config(self.checkpoint_path, self.stepper_override)
-
     
     def get_data_writer(
-        self,
-        n_initial_conditions: int,
-        coords: Mapping[str, np.ndarray],
-        variable_metadata: Mapping[str, VariableMetadata],
-    ) -> RawDataWriter:
-        return  RawDataWriter(
-            path=self.experiment_dir,
-            label="autoregressive_predictions.nc",
-            n_initial_conditions=n_initial_conditions,
-            save_names=['TMP2m'],
-            variable_metadata=variable_metadata,
-            coords=coords,
-            dataset_metadata=DatasetMetadata.from_env(),
-        )
+            self,
+            n_initial_conditions: int,
+            timestep: datetime.timedelta,
+            coords: Mapping[str, np.ndarray],
+            variable_metadata: Mapping[str, VariableMetadata],
+        ) -> DataWriter:
+            return self.data_writer.build(
+                experiment_dir=self.experiment_dir,
+                n_initial_conditions=n_initial_conditions,
+                n_timesteps=self.n_forward_steps,
+                timestep=timestep,
+                variable_metadata=variable_metadata,
+                coords=coords,
+                dataset_metadata=DatasetMetadata.from_env(),
+            )
+    def get_paired_data_writer(
+            self,
+            n_initial_conditions: int,
+            timestep: datetime.timedelta,
+            coords: Mapping[str, np.ndarray],
+            variable_metadata: Mapping[str, VariableMetadata],
+        ) -> PairedDataWriter:
+            return self.data_writer.build(
+                experiment_dir=self.experiment_dir,
+                n_initial_conditions=n_initial_conditions,
+                n_timesteps=self.n_forward_steps,
+                timestep=timestep,
+                variable_metadata=variable_metadata,
+                coords=coords,
+                dataset_metadata=DatasetMetadata.from_env(),
+            )
+
+if __name__ == '__main__':
     
+    parser = ArgumentParser()
+    parser.add_argument('--output-dir', type=str, 
+                        help="Folder to save to")
+    parser.add_argument('--model-dir', type=str,
+                        help="Folder containing model data")
+    parser.add_argument('--inference-config', type=str,
+                        help="Path to the inference configuration file")
+    parser.add_argument('--era5-dir', type=str,
+                        help="Folder containing ERA5 data")
+    parser.add_argument('--experiment-name', type=str, 
+                        help="Identifying name of experiment")
+    parser.add_argument('--num-steps-per-initialisation', type=int, required=True,
+                        help='Number of autoregressive steps to run for every initialisation date')
+    parser.add_argument('--start-datetime', type=str, required=True,
+                        help='First target date, in YYYYMMDD-HH format')
+    parser.add_argument('--end-datetime', type=str, default=None,
+                        help='Final target date, in YYYYMMDD-HH format')
+    parser.add_argument('--steps-between-initialisations', type=int, default=1,
+                        help='Number of forecast steps between initialisations')
+    parser.add_argument('--num-ensemble-members', type=int, default=1,
+                        help='Number of ensemble members to use')
+    parser.add_argument('--output-levels', type=int, nargs='+', default=[1000,850,500],
+                        help="Which pressure levels to write to output. Needs to be a comma separated list, or -1 for all 37 levels.")  
+    parser.add_argument('--output-vars', type=str, nargs='+', default=[
+                                                                        '2m_temperature', 'total_precipitation_6hr', '10m_v_component_of_wind', 
+                                                                        '10m_u_component_of_wind', 'specific_humidity', 'temperature', 'geopotential'
+                                                                        ],
+                        help="Which variables to write to output. Needs to be a space-separaeted list of values, or 'all' for all variables.")
+    parser.add_argument('--save-every-n-steps', default=1, type=int,
+                        help='Number of steps between saving outputs')
+    parser.add_argument('--sst-input', default=None, choices=['forced', 'coupled'])
+    parser.add_argument('--flux-model-path', type=str, default=None)
+    parser.add_argument('--flux-data-config', type=str, default=None)
+    parser.add_argument('--flux-model-config', type=str, default=None)
+    parser.add_argument('--ocean-model-dir', type=str, default=None,
+                        help='Directory in which ocean model is running')
+    parser.add_argument('--debug', action='store_true')
+    args = parser.parse_args()
+    
+    # Parse datetime arguments
+    start_datetime = datetime.datetime.strptime(args.start_datetime, '%Y%m%d-%H')
+
+    if args.end_datetime is not None:
+        end_datetime = datetime.datetime.strptime(args.end_datetime, '%Y%m%d-%H')
+    else:
+        end_datetime = start_datetime
         
-inference_config_path = '/home/a/antonio/repos/ace/inference_config.yaml'
-config_data = prepare_config(inference_config_path)
-config = dacite.from_dict(
-    data_class=InferenceConfig,
-    data=config_data,
-    config=dacite.Config(strict=True),
-)
-config.forcing_loader.num_data_workers = 2
-# prepare_directory(config.experiment_dir, config_data)
+    
+    config_overrides = [
+        f"experiment_dir={os.path.join(args.output_dir, args.experiment_name)}",
+        "n_forward_steps=" + str(args.num_steps_per_initialisation),
+        "checkpoint_path=" + os.path.join(args.model_dir, "ace2_era5_ckpt.tar"),
+        "stepper_override.ocean.interpolate=True",
+        "initial_condition.path=" + os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.year}.nc"),
+        "forcing_loader.dataset.data_path=" + os.path.join(args.model_dir, 'forcing_data'),
+        "forcing_loader.num_data_workers=" + str(2),
+        # f"initial_condition.start_indices.times={start_datetime.timestamp()}",
+        ]
+    ocean_config_overrides = []
+    if args.sst_input == 'coupled':
+        ocean_config_overrides += ["stepper_override.ocean.from_file.router_folder=" + args.ocean_model_dir,
+                                   "stepper_override.ocean.from_file.polling_timeout=600",
+                                   "stepper_override.ocean.from_file.sea_ice_fraction_name=sea_ice_fraction",
+                                   ]
+    
+    
+    config_overrides += ocean_config_overrides
 
-# Make sure that experiment directory exists
-os.makedirs(config.experiment_dir, exist_ok=True)
+    config_data = prepare_config(args.inference_config, override=config_overrides)
+    config = dacite.from_dict(
+        data_class=InferenceConfig,
+        data=config_data,
+        config=dacite.Config(strict=True),
+    )
+    # Not sure how to set lists using the dotlist override, so do it manually here
+    config.initial_condition.start_indices.times = [start_datetime.strftime("%Y-%m-%dT%H:%M:%S")]
+
+    prepare_directory(config.experiment_dir, config_data)
 
 
-stepper_config = config.load_stepper_config()
-data_requirements = stepper_config.get_forcing_window_data_requirements(
-    n_forward_steps=config.forward_steps_in_memory
-)
-logging.info("Loading initial condition data")
-inital_condition_ds = config.initial_condition.get_dataset()
-initial_condition = get_initial_condition(
-        inital_condition_ds, stepper_config.prognostic_names
+    stepper_config = config.load_stepper_config()
+    data_requirements = stepper_config.get_forcing_window_data_requirements(
+        n_forward_steps=config.forward_steps_in_memory
+    )
+    logging.info("Loading initial condition data")
+    inital_condition_ds = config.initial_condition.get_dataset()
+    initial_condition = get_initial_condition(
+            inital_condition_ds, stepper_config.prognostic_names
+        )
+
+    # 
+    stepper = config.load_stepper()
+    stepper.set_eval()
+
+    # This wraps around a Torch Data loader, so the best thing might be to construct
+    # a different data loader. Or else mock the call to __getitem__ with data loader?
+    logging.info("Initializing forcing data loader")
+    data = get_forcing_data(
+        config=config.forcing_loader,
+        total_forward_steps=config.n_forward_steps,
+        window_requirements=data_requirements,
+        initial_condition=initial_condition,
+        surface_temperature_name=stepper.surface_temperature_name,
+        ocean_fraction_name=stepper.ocean_fraction_name,
+        sea_ice_fraction_name='sea_ice_fraction'
     )
 
-# 
-stepper = config.load_stepper()
-stepper.set_eval()
 
-# This wraps around a Torch Data loader, so the best thing might be to construct
-# a different data loader. Or else mock the call to __getitem__ with data loader?
-logging.info("Initializing forcing data loader")
-data = get_forcing_data(
-    config=config.forcing_loader,
-    total_forward_steps=config.n_forward_steps,
-    window_requirements=data_requirements,
-    initial_condition=initial_condition,
-    surface_temperature_name=stepper.surface_temperature_name,
-    ocean_fraction_name=stepper.ocean_fraction_name,
-)
+    if not config.allow_incompatible_dataset:
+        try:
+            stepper.training_dataset_info.assert_compatible_with(data.dataset_info)
+        except IncompatibleDatasetInfo as err:
+            raise IncompatibleDatasetInfo(
+                "Inference dataset is not compatible with dataset used for stepper "
+                "training. Set allow_incompatible_dataset to True to ignore this "
+                f"error. The incompatiblity found was: {str(err)}"
+            ) from err
 
-
-if not config.allow_incompatible_dataset:
-    try:
-        stepper.training_dataset_info.assert_compatible_with(data.dataset_info)
-    except IncompatibleDatasetInfo as err:
-        raise IncompatibleDatasetInfo(
-            "Inference dataset is not compatible with dataset used for stepper "
-            "training. Set allow_incompatible_dataset to True to ignore this "
-            f"error. The incompatiblity found was: {str(err)}"
-        ) from err
-
-variable_metadata = resolve_variable_metadata(
-    dataset_metadata=data.variable_metadata,
-    stepper_metadata=stepper.training_variable_metadata,
-    stepper_all_names=stepper_config.all_names,
-)
-dataset_info = data.dataset_info.update_variable_metadata(variable_metadata)
-
-aggregator = config.aggregator.build(
-    dataset_info=dataset_info,
-    n_timesteps=config.n_forward_steps + stepper.n_ic_timesteps,
-    output_dir=config.experiment_dir,
-)
-
-# writer = config.get_data_writer(
-#         n_initial_conditions=1,
-#         coords=data.coords,
-#         variable_metadata=variable_metadata,
-#     )
-
-run_inference(
-        predict=stepper.predict_paired,
-        data=data,
-        writer=None,
-        aggregator=aggregator,
-        record_logs=None,
+    variable_metadata = resolve_variable_metadata(
+        dataset_metadata=data.variable_metadata,
+        stepper_metadata=stepper.training_variable_metadata,
+        stepper_all_names=stepper_config.all_names,
     )
+    dataset_info = data.dataset_info.update_variable_metadata(variable_metadata)
+
+    aggregator = config.aggregator.build(
+        dataset_info=dataset_info,
+        n_timesteps=config.n_forward_steps + stepper.n_ic_timesteps,
+        output_dir=config.experiment_dir,
+    )
+
+    writer = config.get_data_writer(
+            n_initial_conditions=1,
+            timestep=data.timestep,
+            coords=data.coords,
+            variable_metadata=variable_metadata,
+        )
+
+    run_inference(
+            predict=stepper.predict_paired,
+            data=data,
+            writer=writer,
+            aggregator=aggregator,
+            record_logs=None,
+        )

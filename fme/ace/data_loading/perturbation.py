@@ -74,16 +74,17 @@ class SSTPerturbation:
         sst: List of perturbation selectors for SST perturbations.
     """
 
-    sst: list[PerturbationSelector]
+    perturbation_list: list[PerturbationSelector]
 
     def __post_init__(self):
         self.perturbations: list[PerturbationConfig] = [
-            perturbation.build() for perturbation in self.sst
+            perturbation.build() for perturbation in self.perturbation_list
         ]
 
 
-def _get_ocean_mask(ocean_fraction: torch.Tensor, cutoff: float = 0.5) -> torch.Tensor:
-    return ocean_fraction > cutoff
+
+def _get_mask(fraction: torch.Tensor, cutoff: float = 0.5) -> torch.Tensor:
+    return fraction > cutoff
 
 
 @PerturbationSelector.register("constant")
@@ -93,17 +94,40 @@ class ConstantConfig(PerturbationConfig):
     Configuration for a constant perturbation.
     """
 
+    parameter_name: str
+    mask_fraction_name: str
     amplitude: float = 1.0
 
     def apply_perturbation(
         self,
         data: torch.Tensor,
         lat: torch.Tensor,
-        lon: torch.Tensor,
-        ocean_fraction: torch.Tensor,
-    ):
-        ocean_mask = _get_ocean_mask(ocean_fraction)
-        data[ocean_mask] += self.amplitude  # type: ignore
+        lon: torch.Tensor
+    ):  
+
+        mask = _get_mask(data[self.mask_fraction_name])
+        data[self.parameter_name][mask] += self.amplitude  # type: ignore
+        
+@PerturbationSelector.register("multiply")
+@dataclasses.dataclass
+class MultiplyConfig(PerturbationConfig):
+    """
+    Configuration for a multiply perturbation.
+    """
+
+    parameter_name: str
+    mask_fraction_name: str
+    amplitude: float = 1.0
+
+    def apply_perturbation(
+        self,
+        data: torch.Tensor,
+        lat: torch.Tensor,
+        lon: torch.Tensor
+    ):  
+
+        mask = _get_mask(data[self.mask_fraction_name])
+        data[self.parameter_name][mask] *= self.amplitude  # type: ignore
 
 
 @PerturbationSelector.register("greens_function")
@@ -166,7 +190,7 @@ class GreensFunctionConfig(PerturbationConfig):
         lat_in_patch = torch.abs(lat - self.lat_center) < self.lat_width / 2.0
         lon_in_patch, lon_shifted = self._wrap_longitude_discontinuity(lon)
         mask = lat_in_patch & lon_in_patch
-        ocean_mask = _get_ocean_mask(ocean_fraction)
+        ocean_mask = _get_mask(ocean_fraction)
         perturbation = self.amplitude * (
             torch.cos(
                 torch.pi
