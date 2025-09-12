@@ -304,8 +304,10 @@ if __name__ == '__main__':
         ocean_config_overrides += ["stepper_override.ocean.from_file.router_folder=" + args.ocean_model_dir,
                                    "stepper_override.ocean.from_file.polling_timeout=600",
                                    "stepper_override.ocean.from_file.sea_ice_fraction_name=sea_ice_fraction",
+                                   "stepper_override.ocean.from_file.file_prefix=oce2atm",
+                                   "stepper_override.ocean.from_file.file_suffix=_ace2_nemo",
                                    ]
-    
+
     
     config_overrides += ocean_config_overrides
 
@@ -317,7 +319,11 @@ if __name__ == '__main__':
     )
     # Not sure how to set lists using the dotlist override, so do it manually here
     config.initial_condition.start_indices.times = [start_datetime.strftime("%Y-%m-%dT%H:%M:%S")]
-
+        
+    if args.sst_input == 'coupled':
+        # IF using coupled setup, we can't look ahead more than one step
+        config.forward_steps_in_memory = 1
+    
     prepare_directory(config.experiment_dir, config_data)
 
 
@@ -344,8 +350,7 @@ if __name__ == '__main__':
         window_requirements=data_requirements,
         initial_condition=initial_condition,
         surface_temperature_name=stepper.surface_temperature_name,
-        ocean_fraction_name=stepper.ocean_fraction_name,
-        sea_ice_fraction_name='sea_ice_fraction'
+        ocean_fraction_name=stepper.ocean_fraction_name
     )
 
 

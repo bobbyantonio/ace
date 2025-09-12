@@ -1,5 +1,6 @@
 import logging
 
+import datetime
 import torch.utils.data
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler
@@ -154,7 +155,7 @@ def get_inference_data(
     window_requirements: DataRequirements,
     initial_condition: PrognosticState | PrognosticStateDataRequirements,
     surface_temperature_name: str | None = None,
-    ocean_fraction_name: str | None = None,
+    ocean_fraction_name: str | None = None
 ) -> InferenceGriddedData:
     """
     Args:
@@ -220,8 +221,7 @@ def get_forcing_data(
     window_requirements: DataRequirements,
     initial_condition: PrognosticState,
     surface_temperature_name: str | None = None,
-    ocean_fraction_name: str | None = None,
-    sea_ice_fraction_name: str | None = None
+    ocean_fraction_name: str | None = None
 ) -> InferenceGriddedData:
     """Return a GriddedData loader for forcing data based on the initial condition.
     This function determines the start indices for the forcing data based on the initial

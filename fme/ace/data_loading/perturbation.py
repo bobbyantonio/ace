@@ -1,13 +1,19 @@
 import abc
+
 import dataclasses
 from collections.abc import Callable, Mapping
+from typing import List
 
 # we use Type to distinguish from type attr of PerturbationSelector
 from typing import Any, ClassVar, Type  # noqa: UP035
 
+import os
 import dacite
+import polling2
+import datetime
 import numpy as np
 import torch
+import xarray as xr
 
 from fme.core.registry.registry import Registry
 
@@ -34,7 +40,7 @@ class PerturbationConfig(abc.ABC):
         data: torch.Tensor,
         lat: torch.Tensor,
         lon: torch.Tensor,
-        ocean_fraction: torch.Tensor,
+        time: List[datetime.datetime] | List[datetime.timedelta] = None
     ) -> None: ...
 
 
@@ -102,7 +108,8 @@ class ConstantConfig(PerturbationConfig):
         self,
         data: torch.Tensor,
         lat: torch.Tensor,
-        lon: torch.Tensor
+        lon: torch.Tensor,
+        time: datetime.timedelta = None
     ):  
 
         mask = _get_mask(data[self.mask_fraction_name])
@@ -123,12 +130,50 @@ class MultiplyConfig(PerturbationConfig):
         self,
         data: torch.Tensor,
         lat: torch.Tensor,
-        lon: torch.Tensor
+        lon: torch.Tensor,
+        time: datetime.timedelta = None
     ):  
 
         mask = _get_mask(data[self.mask_fraction_name])
         data[self.parameter_name][mask] *= self.amplitude  # type: ignore
+        
+@PerturbationSelector.register("from_file")
+@dataclasses.dataclass
+class FromFileConfig(PerturbationConfig):
+    """
+    Configuration for a perturbation loaded from a file.
+    """
 
+    parameter_name: str
+    data_directory: str
+    file_prefix: str
+    parameter_name_in_file: str
+    polling_timeout: int = 600  # seconds
+    file_suffix: str = ""
+    
+
+    def apply_perturbation(
+        self,
+        data: torch.Tensor,
+        lat: torch.Tensor,
+        lon: torch.Tensor,
+        time: List[datetime.timedelta] # We have to use time deltas since the ocean model only has access to timedeltas
+    ):
+        # Time contains the initialisation time, and the target time
+        assert len(time) == 2, "FromFileConfig only supports one forward step in memory"
+        
+        init_dt = time[0]
+        
+        # Note; this requires the assumption that the variable here is slowly varying compared ot the atmosphere, (e.g. ocean, ice)
+        # as we make the assumption that we can use the value at init time for the target time.
+        da_at_init_time = polling2.poll(lambda: xr.load_dataset(f"{self.data_directory}/{self.file_prefix}_{int((init_dt * 1e-9) / 3600)}h{self.file_suffix}.nc"),
+                        ignore_exceptions=(IOError, ValueError, FileNotFoundError),
+                        timeout=self.polling_timeout,
+                        step=0.1).isel(time=0).transpose('latitude', 'longitude')[self.parameter_name_in_file]
+        da_at_init_time = da_at_init_time.fillna(0.0)
+        replacement_tensor = torch.tensor(da_at_init_time.values, device=data[self.parameter_name].device, dtype=data[self.parameter_name].dtype)
+        replacement_tensor = replacement_tensor.expand(data[self.parameter_name].shape)
+        data[self.parameter_name] = replacement_tensor
 
 @PerturbationSelector.register("greens_function")
 @dataclasses.dataclass
@@ -145,7 +190,7 @@ class GreensFunctionConfig(PerturbationConfig):
         lat_width: latitudinal width of the patch in degrees.
         lon_width: longitudinal width of the patch in degrees.
     """
-
+    mask_fraction_name: str
     amplitude: float = 1.0
     lat_center: float = 0.0
     lon_center: float = 0.0
@@ -185,12 +230,12 @@ class GreensFunctionConfig(PerturbationConfig):
         data: torch.Tensor,
         lat: torch.Tensor,
         lon: torch.Tensor,
-        ocean_fraction: torch.Tensor,
+        time: datetime.timedelta = None
     ):
         lat_in_patch = torch.abs(lat - self.lat_center) < self.lat_width / 2.0
         lon_in_patch, lon_shifted = self._wrap_longitude_discontinuity(lon)
         mask = lat_in_patch & lon_in_patch
-        ocean_mask = _get_mask(ocean_fraction)
+        ocean_mask = _get_mask(data[self.mask_fraction_name])
         perturbation = self.amplitude * (
             torch.cos(
                 torch.pi

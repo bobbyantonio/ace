@@ -43,8 +43,11 @@ class FromFileOceanConfig:
     """
 
     router_folder: str
+    file_prefix: str
     polling_timeout: int = 60*10  # 10 minutes
     sea_ice_fraction_name: str = None
+    file_suffix: str = ""
+    
 
 @dataclasses.dataclass
 class OceanConfig:
@@ -123,6 +126,8 @@ class Ocean:
             self.timestep_counter = 0
             self.polling_timeout = config.from_file.polling_timeout
             self.sea_ice_fraction_name = config.from_file.sea_ice_fraction_name
+            self.file_prefix = config.from_file.file_prefix
+            self.file_suffix = config.from_file.file_suffix
             
         self.timestep = timestep
         self.timestep_hrs = int(self.timestep.seconds / 3600)
@@ -167,14 +172,13 @@ class Ocean:
                 pickle.dump(flux_dict, ofh)
 
             # Load ocean data. Note, this must be on a 180 x 360 grid.
-            # ocean_ds = polling2.poll(lambda: xr.load_dataset(os.path.join(self.router_folder, f"oce2atm_{(self.timestep_counter + 1) * self.timestep_hrs}h.nc")),
-            #         ignore_exceptions=(IOError, ValueError, FileNotFoundError),
-            #         timeout=self.polling_timeout,
-            #         step=0.1).isel(time=0).transpose('latitude', 'longitude')
-            ocean_ds = xr.ones_like(xr.load_dataset(os.path.join(self.router_folder, f"oce2atm_6h.nc")).isel(time=0).transpose('latitude', 'longitude'))
+            ocean_ds = polling2.poll(lambda: xr.load_dataset(os.path.join(self.router_folder, f"{self.file_prefix}_{(self.timestep_counter + 1) * self.timestep_hrs}h{self.file_suffix}.nc")),
+                    ignore_exceptions=(IOError, ValueError, FileNotFoundError),
+                    timeout=self.polling_timeout,
+                    step=0.1).isel(time=0).transpose('latitude', 'longitude')
+            # ocean_ds = xr.ones_like(xr.load_dataset(os.path.join(self.router_folder, f"oce2atm_6h.nc")).isel(time=0).transpose('latitude', 'longitude'))
             # Set ice frac to zero and SST to 290K for testing
-            ocean_ds['sea_ice_fraction'] = xr.zeros_like(ocean_ds['sea_ice_fraction'])
-            ocean_ds['sea_surface_temperature'] = xr.full_like(ocean_ds['sea_surface_temperature'], 320.0)
+            # ocean_ds['sea_surface_temperature'] = xr.full_like(ocean_ds['sea_surface_temperature'], 320.0)
             
             self.timestep_counter += 1
 
@@ -184,17 +188,13 @@ class Ocean:
             
             device = gen_data[self.surface_temperature_name].device
             sst_array = torch.tensor(sst_da.values, dtype=torch.float32).to(device)
-            ice_frac_array = torch.tensor(ice_frac.values, dtype=torch.float32).to(device)
-
             sst_array = sst_array[None, :, :] # Add batch dimension
-            ice_frac_array = ice_frac_array[None, :, :] # Add batch dimension
             
             # Make sure there aren't any null values in the SST (will be interpolated )
             next_step_temperature = torch.where(torch.isnan(sst_array), gen_data[self.surface_temperature_name], sst_array)
             
-            # Prescribe both SST and sea ice fraction
-            prescriber_dict = {self.surface_temperature_name: next_step_temperature,
-                               self.sea_ice_fraction_name: ice_frac_array}
+            # Prescribe SST
+            prescriber_dict = {self.surface_temperature_name: next_step_temperature}
                 
         else:
             raise NotImplementedError(f"Ocean type={self.type} is not implemented")

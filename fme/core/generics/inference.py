@@ -135,6 +135,7 @@ def run_inference(
                 )
             with timer.context("wandb_logging"):
                 record_logs(logs)
+        
         with timer.context("data_writer"):
             prognostic_state = looper.get_prognostic_state()
             writer.write(prognostic_state, "restart.nc")

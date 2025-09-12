@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from math import ceil
 
 import cftime
+import datetime
 import numpy as np
 import torch
 import xarray as xr
@@ -211,8 +212,9 @@ class InferenceDataset(torch.utils.data.Dataset):
         self._total_forward_steps = total_forward_steps
         self._perturbations = config.perturbations
         self._n_initial_conditions = config.n_initial_conditions
-        # self._surface_temperature_name = surface_temperature_name
-        # self._ocean_fraction_name = ocean_fraction_name
+        
+        self._start_datetime = self._dataset.all_times[0]
+        self._end_datetime = self._dataset.all_times[-1]
         
         if isinstance(config.start_indices, TimestampList):
             self._start_indices = config.start_indices.as_indices(
@@ -257,31 +259,16 @@ class InferenceDataset(torch.utils.data.Dataset):
             tensors, time = self._dataset.get_sample_by_time_slice(window_time_slice)
             if self._perturbations is not None:
 
-                logging.debug("Applying SST perturbations to forcing data")
+                logging.debug("Applying perturbations to forcing data")
                 for perturbation in self._perturbations.perturbations:
 
                     perturbation.apply_perturbation(
                         tensors,
                         self._lats,
                         self._lons,
+                        [(dt - self._start_datetime).item() for dt in time]
                     )
 
-            # if self._sea_ice_perturbations is not None:
-            #     if (
-            #         self._sea_ice_fraction_name is None
-            #     ):
-            #         raise ValueError(
-            #             "Sea ice fraction name must be provided \
-            #             to apply sea ice perturbations."
-            #         )
-            #     logging.debug("Applying sea ice perturbations to forcing data")
-            #     for perturbation in self._sea_ice_perturbations.perturbations:
-            #         perturbation.apply_perturbation(
-            #             tensors[self._sea_ice_fraction_name],
-            #             self._lats,
-            #             self._lons,
-            #             tensors[self._sea_ice_fraction_name],
-            #         )
             sample_tuples.append((tensors, time))
         return BatchData.from_sample_tuples(
             sample_tuples,
