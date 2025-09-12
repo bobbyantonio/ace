@@ -21,16 +21,6 @@ forcing_loader:
   dataset:
     data_path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/forcing_data
   num_data_workers: 2
-  perturbations: 
-      perturbation_list:
-        - type: from_file
-          config: 
-            data_directory: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/router_data
-            parameter_name: "sea_ice_fraction"
-            parameter_name_in_file: "sea_ice_fraction"
-            file_prefix: "oce2atm"
-            file_suffix: "_ace2_nemo"
-            polling_timeout: 300
 data_writer:
   save_prediction_files: true
   save_monthly_files: false

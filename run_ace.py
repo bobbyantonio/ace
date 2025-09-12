@@ -22,6 +22,7 @@ import fme.core.logging_utils as logging_utils
 from fme.ace.aggregator.inference import InferenceAggregatorConfig
 from fme.ace.data_loading.batch_data import BatchData, PrognosticState
 from fme.ace.data_loading.getters import get_forcing_data
+from fme.ace.data_loading.perturbation import PerturbationSelector
 from fme.ace.data_loading.inference import (
     ExplicitIndices,
     ForcingDataLoaderConfig,
@@ -319,13 +320,24 @@ if __name__ == '__main__':
     )
     # Not sure how to set lists using the dotlist override, so do it manually here
     config.initial_condition.start_indices.times = [start_datetime.strftime("%Y-%m-%dT%H:%M:%S")]
-        
+    
     if args.sst_input == 'coupled':
         # IF using coupled setup, we can't look ahead more than one step
         config.forward_steps_in_memory = 1
+        
+        perturbation_config = {'type': 'from_file', 
+                               'config': 
+                                   {'data_directory': args.ocean_model_dir,
+                                    'file_prefix': 'oce2atm',
+                                    'file_suffix': '_ace2_nemo',
+                                    'parameter_name_in_file': 'sea_ice_fraction',
+                                    'parameter_name': 'sea_ice_fraction',
+                                    'polling_timeout': 300
+                                   }
+        }
+        config.forcing_loader.perturbations.perturbation_list = [dacite.from_dict(data_class=PerturbationSelector, data=perturbation_config, config=dacite.Config(strict=True))]      
     
     prepare_directory(config.experiment_dir, config_data)
-
 
     stepper_config = config.load_stepper_config()
     data_requirements = stepper_config.get_forcing_window_data_requirements(
