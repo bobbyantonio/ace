@@ -1,4 +1,5 @@
 experiment_dir: NA
+logging_dir: NA
 n_forward_steps: 5
 forward_steps_in_memory: 1
 checkpoint_path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/ace2_era5_ckpt.tar
@@ -11,7 +12,7 @@ stepper_override:
   ocean:
     surface_temperature_name: surface_temperature
     ocean_fraction_name: ocean_fraction
-    interpolate: True
+    interpolate: False # Oean fraction is a bit strange, so I don't trust interpolation at the moment
 initial_condition:
   path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/initial_conditions/ic_2020.nc
   start_indices:
@@ -21,6 +22,8 @@ forcing_loader:
   dataset:
     data_path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/forcing_data
   num_data_workers: 2
+  perturbations:
+    perturbation_list: []
 data_writer:
   save_prediction_files: true
   save_monthly_files: false

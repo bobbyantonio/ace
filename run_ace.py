@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from typing import Literal
 
 import dacite
+import pickle
 import numpy as np
 import torch
 import xarray as xr
@@ -165,6 +166,7 @@ class InferenceConfig:
     """
 
     experiment_dir: str
+    logging_dir: str
     n_forward_steps: int
     checkpoint_path: str
     logging: LoggingConfig
@@ -243,7 +245,9 @@ class InferenceConfig:
 if __name__ == '__main__':
     
     parser = ArgumentParser()
-    parser.add_argument('--output-dir', type=str, 
+    parser.add_argument('--output-dir', type=str, default=None,
+                        help="Folder to save to")
+    parser.add_argument('-logging-dir', type=str, default=None,
                         help="Folder to save to")
     parser.add_argument('--model-dir', type=str,
                         help="Folder containing model data")
@@ -292,13 +296,13 @@ if __name__ == '__main__':
     
     config_overrides = [
         f"experiment_dir={os.path.join(args.output_dir, args.experiment_name)}",
+        f"experiment_dir={args.logging_dir}",
         "n_forward_steps=" + str(args.num_steps_per_initialisation),
         "checkpoint_path=" + os.path.join(args.model_dir, "ace2_era5_ckpt.tar"),
         "stepper_override.ocean.interpolate=True",
         "initial_condition.path=" + os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.year}.nc"),
         "forcing_loader.dataset.data_path=" + os.path.join(args.model_dir, 'forcing_data'),
-        "forcing_loader.num_data_workers=" + str(2),
-        # f"initial_condition.start_indices.times={start_datetime.timestamp()}",
+        "forcing_loader.num_data_workers=" + str(2)
         ]
     ocean_config_overrides = []
     if args.sst_input == 'coupled':
@@ -335,6 +339,7 @@ if __name__ == '__main__':
                                     'polling_timeout': 300
                                    }
         }
+        
         config.forcing_loader.perturbations.perturbation_list = [dacite.from_dict(data_class=PerturbationSelector, data=perturbation_config, config=dacite.Config(strict=True))]      
     
     prepare_directory(config.experiment_dir, config_data)
@@ -345,6 +350,12 @@ if __name__ == '__main__':
     )
     logging.info("Loading initial condition data")
     inital_condition_ds = config.initial_condition.get_dataset()
+
+    # # Write this initial condition to router directory as 0h file
+    # output_dict = {k: inital_condition_ds[k].values for k in inital_condition_ds.data_vars}
+    # with open(os.path.join(args.ocean_model_dir, "ace2_0h.pkl"), 'wb+') as ofh:
+    #     pickle.dump(output_dict, ofh)
+        
     initial_condition = get_initial_condition(
             inital_condition_ds, stepper_config.prognostic_names
         )
@@ -389,12 +400,15 @@ if __name__ == '__main__':
         output_dir=config.experiment_dir,
     )
 
-    writer = config.get_data_writer(
-            n_initial_conditions=1,
-            timestep=data.timestep,
-            coords=data.coords,
-            variable_metadata=variable_metadata,
-        )
+    if args.output_dir is not None:
+        writer = config.get_data_writer(
+                n_initial_conditions=1,
+                timestep=data.timestep,
+                coords=data.coords,
+                variable_metadata=variable_metadata,
+            )
+    else:
+        writer = None
 
     run_inference(
             predict=stepper.predict_paired,

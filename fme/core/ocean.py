@@ -167,7 +167,7 @@ class Ocean:
         elif self.type == "from_file":
 
             # Write generated data to file for the router to read
-            flux_dict = {k: gen_data[k].cpu().numpy() for k in ['surface_temperature', 'LHTFLsfc', 'SHTFLsfc', 'DLWRFsfc', 'DSWRFsfc', 'PRATEsfc']}
+            flux_dict = {k: gen_data[k].cpu().numpy() for k in ['surface_temperature', 'LHTFLsfc', 'SHTFLsfc', 'DLWRFsfc', 'ULWRFsfc', 'DSWRFsfc', 'USWRFsfc', 'PRATEsfc', 'UGRD10m', 'VGRD10m', 'Q2m', 'TMP2m', 'PRESsfc']}
             with open(os.path.join(self.router_folder, f"ace2_{(self.timestep_counter + 1) * self.timestep_hrs}h.pkl"), 'wb+') as ofh:
                 pickle.dump(flux_dict, ofh)
 
