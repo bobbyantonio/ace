@@ -247,7 +247,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--output-dir', type=str, default=None,
                         help="Folder to save to")
-    parser.add_argument('-logging-dir', type=str, default=None,
+    parser.add_argument('--logging-dir', type=str, default=None,
                         help="Folder to save to")
     parser.add_argument('--model-dir', type=str,
                         help="Folder containing model data")
@@ -300,7 +300,7 @@ if __name__ == '__main__':
         "n_forward_steps=" + str(args.num_steps_per_initialisation),
         "checkpoint_path=" + os.path.join(args.model_dir, "ace2_era5_ckpt.tar"),
         "stepper_override.ocean.interpolate=True",
-        "initial_condition.path=" + os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.year}.nc"),
+        "initial_condition.path=" + os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.strftime('%Y%m%d')}.nc"),
         "forcing_loader.dataset.data_path=" + os.path.join(args.model_dir, 'forcing_data'),
         "forcing_loader.num_data_workers=" + str(2)
         ]
@@ -351,11 +351,6 @@ if __name__ == '__main__':
     logging.info("Loading initial condition data")
     inital_condition_ds = config.initial_condition.get_dataset()
 
-    # # Write this initial condition to router directory as 0h file
-    # output_dict = {k: inital_condition_ds[k].values for k in inital_condition_ds.data_vars}
-    # with open(os.path.join(args.ocean_model_dir, "ace2_0h.pkl"), 'wb+') as ofh:
-    #     pickle.dump(output_dict, ofh)
-        
     initial_condition = get_initial_condition(
             inital_condition_ds, stepper_config.prognostic_names
         )
@@ -410,6 +405,7 @@ if __name__ == '__main__':
     else:
         writer = None
 
+    logging.info("Starting inference")
     run_inference(
             predict=stepper.predict_paired,
             data=data,
@@ -417,3 +413,5 @@ if __name__ == '__main__':
             aggregator=aggregator,
             record_logs=None,
         )
+    
+    logging.info("Inference complete!")
