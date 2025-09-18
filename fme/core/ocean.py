@@ -183,6 +183,8 @@ class Ocean:
             self.timestep_counter += 1
 
             # Make sure all SSTs under sea ice are set to just above freezing point of salt water, as done by ERA5
+            # Note that, since incoming SST has null values at land points, we are implicitly masking out the land
+            # Which is good because the ACE ocean fraction seems to be > 0 over some land points
             ice_frac = ocean_ds['sea_ice_fraction'].fillna(0.0)
             sst_da = (1 - ice_frac) * ocean_ds['sea_surface_temperature'] + ice_frac * 271.45972 * xr.ones_like(ocean_ds['sea_surface_temperature'])
             
