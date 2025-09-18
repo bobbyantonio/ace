@@ -1,0 +1,46 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+
+        {
+            "name": "Run ACE forced",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "run_ace",
+            "args": [
+                "--inference-config", "/home/a/antonio/repos/ace/configs/coupled_inference_config.yaml",
+                "--model-dir", "/network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data",
+                "--experiment-name", "ace2_prescribed_test",
+                "--output-dir", "/network/group/aopp/predict/HMC005_ANTONIO_EERIE/predictions/",
+                "--start-datetime", "20200101-00",
+                "--end-datetime", "20200101-00",
+                "--num-steps-per-initialisation", "6",
+                "--sst-input", "forced",
+                "--ocean-model-dir", "/network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/router_data",
+                "--debug"
+            ],
+        },
+                {
+            "name": "Run ACE coupled",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "run_ace",
+            "args": [
+                "--inference-config", "/home/a/antonio/repos/ace/configs/coupled_inference_config.yaml",
+                "--model-dir", "/network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data",
+                "--experiment-name", "ace2_coupled_test",
+                "--output-dir", "/network/group/aopp/predict/HMC005_ANTONIO_EERIE/predictions/",
+                "--start-datetime", "20200101-00",
+                "--end-datetime", "20200101-00",
+                "--num-steps-per-initialisation", "6",
+                "--sst-input", "coupled",
+                "--ocean-model-dir", "/network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/router_data",
+                "--debug"
+            ],
+        }
+    ]
+}
