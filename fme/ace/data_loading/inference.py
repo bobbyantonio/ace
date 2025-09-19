@@ -260,7 +260,7 @@ class InferenceDataset(torch.utils.data.Dataset):
             if self._perturbations is not None:
 
                 logging.debug("Applying perturbations to forcing data")
-                for perturbation in self._perturbations.perturbations:
+                for perturbation in self._perturbations.perturbation_list:
 
                     perturbation.apply_perturbation(
                         tensors,
