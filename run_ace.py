@@ -16,6 +16,8 @@ import torch
 import xarray as xr
 from xarray.coding.times import CFDatetimeCoder
 
+from fme.core.ocean_derived_variables import sea_ice_fraction
+
 sys.path.append('/home/a/antonio/repos/ace')
 
 import fme
@@ -336,11 +338,12 @@ if __name__ == '__main__':
                                     'file_suffix': '_ace2_nemo',
                                     'parameter_name_in_file': 'sea_ice_fraction',
                                     'parameter_name': 'sea_ice_fraction',
-                                    'polling_timeout': 300
+                                    'polling_timeout': 300,
+                                    'file_mask_fraction_name': 'sea_surface_temperature'
                                    }
         }
         
-        config.forcing_loader.perturbations.perturbation_list = [dacite.from_dict(data_class=PerturbationSelector, data=perturbation_config, config=dacite.Config(strict=True))]      
+        config.forcing_loader.perturbations.perturbation_list = [dacite.from_dict(data_class=PerturbationSelector, data=perturbation_config, config=dacite.Config(strict=True)).build()]      
     
     prepare_directory(config.experiment_dir, config_data)
 

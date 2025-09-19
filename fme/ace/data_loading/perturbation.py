@@ -148,9 +148,9 @@ class FromFileConfig(PerturbationConfig):
     data_directory: str
     file_prefix: str
     parameter_name_in_file: str
+    file_mask_fraction_name: str
     polling_timeout: int = 600  # seconds
     file_suffix: str = ""
-    
 
     def apply_perturbation(
         self,
@@ -166,14 +166,20 @@ class FromFileConfig(PerturbationConfig):
         
         # Note; this requires the assumption that the variable here is slowly varying compared ot the atmosphere, (e.g. ocean, ice)
         # as we make the assumption that we can use the value at init time for the target time.
-        da_at_init_time = polling2.poll(lambda: xr.load_dataset(f"{self.data_directory}/{self.file_prefix}_{int((init_dt * 1e-9) / 3600)}h{self.file_suffix}.nc"),
+        ds_at_init_time = polling2.poll(lambda: xr.load_dataset(f"{self.data_directory}/{self.file_prefix}_{int((init_dt * 1e-9) / 3600)}h{self.file_suffix}.nc"),
                         ignore_exceptions=(IOError, ValueError, FileNotFoundError),
                         timeout=self.polling_timeout,
-                        step=0.1).isel(time=0).transpose('latitude', 'longitude')[self.parameter_name_in_file]
-        da_at_init_time = da_at_init_time.fillna(0.0)
-        replacement_tensor = torch.tensor(da_at_init_time.values, device=data[self.parameter_name].device, dtype=data[self.parameter_name].dtype)
+                        step=0.1).isel(time=0).transpose('latitude', 'longitude')
+        
+        # Create mask; this is because ACE forcing data seems to have non-zero sea ice fraction over land, and removing this may cause issues.
+        mask_da = ~np.isnan(ds_at_init_time[self.file_mask_fraction_name])
+        mask = torch.tensor(mask_da.values, device=data[self.parameter_name].device, dtype=torch.bool)
+        mask = mask.expand(data[self.parameter_name].shape)
+        
+        replacement_tensor = torch.tensor(ds_at_init_time[self.parameter_name_in_file].fillna(0.0).values, device=data[self.parameter_name].device, dtype=data[self.parameter_name].dtype)
         replacement_tensor = replacement_tensor.expand(data[self.parameter_name].shape)
-        data[self.parameter_name] = replacement_tensor
+        
+        data[self.parameter_name] = torch.where(mask, replacement_tensor, data[self.parameter_name])
 
 @PerturbationSelector.register("greens_function")
 @dataclasses.dataclass
