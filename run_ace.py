@@ -301,7 +301,7 @@ if __name__ == '__main__':
         f"experiment_dir={args.logging_dir}",
         "n_forward_steps=" + str(args.num_steps_per_initialisation),
         "checkpoint_path=" + os.path.join(args.model_dir, "ace2_era5_ckpt.tar"),
-        "stepper_override.ocean.interpolate=True",
+        "stepper_override.ocean.interpolate=False",
         "initial_condition.path=" + os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.strftime('%Y%m%d')}.nc"),
         "forcing_loader.dataset.data_path=" + os.path.join(args.model_dir, 'forcing_data'),
         "forcing_loader.num_data_workers=" + str(2)
