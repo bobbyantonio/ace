@@ -249,6 +249,8 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--output-dir', type=str, default=None,
                         help="Folder to save to")
+    parser.add_argument('--model-name', type=str, default='ace2',
+                        help="String to identify model")
     parser.add_argument('--logging-dir', type=str, default=None,
                         help="Folder to save to")
     parser.add_argument('--model-dir', type=str,
@@ -301,7 +303,7 @@ if __name__ == '__main__':
         f"experiment_dir={args.logging_dir}",
         "n_forward_steps=" + str(args.num_steps_per_initialisation),
         "checkpoint_path=" + os.path.join(args.model_dir, "ace2_era5_ckpt.tar"),
-        "stepper_override.ocean.interpolate=True",
+        "stepper_override.ocean.interpolate=False",
         "initial_condition.path=" + os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.strftime('%Y%m%d')}.nc"),
         "forcing_loader.dataset.data_path=" + os.path.join(args.model_dir, f"forcing_data_{start_datetime.year}"),
         "forcing_loader.num_data_workers=" + str(2)
@@ -312,7 +314,7 @@ if __name__ == '__main__':
                                    "stepper_override.ocean.from_file.polling_timeout=600",
                                    "stepper_override.ocean.from_file.sea_ice_fraction_name=sea_ice_fraction",
                                    "stepper_override.ocean.from_file.file_prefix=oce2atm",
-                                   "stepper_override.ocean.from_file.file_suffix=_ace2_nemo",
+                                   f"stepper_override.ocean.from_file.file_suffix=_{args.model_name}_nemo",
                                    ]
 
     
