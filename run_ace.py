@@ -313,6 +313,7 @@ if __name__ == '__main__':
                                    "stepper_override.ocean.from_file.sea_ice_fraction_name=sea_ice_fraction",
                                    "stepper_override.ocean.from_file.file_prefix=oce2atm",
                                    "stepper_override.ocean.from_file.file_suffix=_ace2_nemo",
+                                   "stepper_override.ocean.from_file.grid_file_path=" + os.path.join(args.model_dir, 'grid.nc'),
                                    ]
 
     

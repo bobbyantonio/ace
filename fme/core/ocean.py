@@ -44,6 +44,7 @@ class FromFileOceanConfig:
 
     router_folder: str
     file_prefix: str
+    grid_file_path: str
     polling_timeout: int = 60*10  # 10 minutes
     sea_ice_fraction_name: str = None
     file_suffix: str = ""
@@ -128,6 +129,7 @@ class Ocean:
             self.sea_ice_fraction_name = config.from_file.sea_ice_fraction_name
             self.file_prefix = config.from_file.file_prefix
             self.file_suffix = config.from_file.file_suffix
+            self.grid_da = xr.load_dataarray(config.from_file.grid_file_path)
             
         self.timestep = timestep
         self.timestep_hrs = int(self.timestep.seconds / 3600)
@@ -167,9 +169,10 @@ class Ocean:
         elif self.type == "from_file":
 
             # Write generated data to file for the router to read
-            flux_dict = {k: v.cpu().numpy() for k, v in gen_data.items()}
-            with open(os.path.join(self.router_folder, f"ace2_{(self.timestep_counter + 1) * self.timestep_hrs}h.pkl"), 'wb+') as ofh:
-                pickle.dump(flux_dict, ofh)
+
+            flux_dict = {k: (['latitude', 'longitude'], v.squeeze()) for k, v in gen_data.items()}
+            ds = xr.Dataset(flux_dict, coords={'latitude': self.grid_da['latitude'].values, 'longitude': self.grid_da['longitude'].values})
+            ds.to_netcdf(os.path.join(self.router_folder, f"ace2_{(self.timestep_counter + 1) * self.timestep_hrs}h.nc"),)
 
             # Load ocean data. Note, this must be on a 180 x 360 grid.
             ocean_ds = polling2.poll(lambda: xr.load_dataset(os.path.join(self.router_folder, f"{self.file_prefix}_{(self.timestep_counter + 1) * self.timestep_hrs}h{self.file_suffix}.nc")),
