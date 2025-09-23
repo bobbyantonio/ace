@@ -337,7 +337,7 @@ if __name__ == '__main__':
                                'config': 
                                    {'data_directory': args.ocean_model_dir,
                                     'file_prefix': 'oce2atm',
-                                    'file_suffix': '_ace2_nemo',
+                                    'file_suffix': f"_{args.model_name}_nemo",
                                     'parameter_name_in_file': 'sea_ice_fraction',
                                     'parameter_name': 'sea_ice_fraction',
                                     'polling_timeout': 300,
