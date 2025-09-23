@@ -170,7 +170,7 @@ class Ocean:
 
             # Write generated data to file for the router to read
 
-            flux_dict = {k: (['latitude', 'longitude'], v.squeeze()) for k, v in gen_data.items()}
+            flux_dict = {k: (['latitude', 'longitude'], v.squeeze().cpu()) for k, v in gen_data.items()}
             ds = xr.Dataset(flux_dict, coords={'latitude': self.grid_da['latitude'].values, 'longitude': self.grid_da['longitude'].values})
             ds.to_netcdf(os.path.join(self.router_folder, f"ace2_{(self.timestep_counter + 1) * self.timestep_hrs}h.nc"),)
 
