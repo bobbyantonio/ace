@@ -314,6 +314,7 @@ if __name__ == '__main__':
                                    "stepper_override.ocean.from_file.polling_timeout=600",
                                    "stepper_override.ocean.from_file.sea_ice_fraction_name=sea_ice_fraction",
                                    "stepper_override.ocean.from_file.file_prefix=oce2atm",
+                                   "stepper_override.ocean.from_file.grid_file_path=" + os.path.join(args.model_dir, 'grid.nc'),
                                    f"stepper_override.ocean.from_file.file_suffix=_{args.model_name}_nemo",
                                    ]
 
