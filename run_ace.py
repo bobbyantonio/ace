@@ -249,6 +249,8 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--output-dir', type=str, default=None,
                         help="Folder to save to")
+    parser.add_argument('--model-name', type=str, default='ace2',
+                        help="String to identify model")
     parser.add_argument('--logging-dir', type=str, default=None,
                         help="Folder to save to")
     parser.add_argument('--model-dir', type=str,
@@ -312,8 +314,8 @@ if __name__ == '__main__':
                                    "stepper_override.ocean.from_file.polling_timeout=600",
                                    "stepper_override.ocean.from_file.sea_ice_fraction_name=sea_ice_fraction",
                                    "stepper_override.ocean.from_file.file_prefix=oce2atm",
-                                   "stepper_override.ocean.from_file.file_suffix=_ace2_nemo",
                                    "stepper_override.ocean.from_file.grid_file_path=" + os.path.join(args.model_dir, 'grid.nc'),
+                                   f"stepper_override.ocean.from_file.file_suffix=_{args.model_name}_nemo",
                                    ]
 
     
