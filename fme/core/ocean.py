@@ -186,7 +186,7 @@ class Ocean:
             # Note that, since incoming SST has null values at land points, we are implicitly masking out the land
             # Which is good because the ACE ocean fraction seems to be > 0 over some land points
             ice_frac = ocean_ds['sea_ice_fraction'].fillna(0.0)
-            sst_da = (1 - ice_frac) * ocean_ds['sea_surface_temperature'] + ice_frac * 271.45972 * xr.ones_like(ocean_ds['sea_surface_temperature'])
+            sst_da = (1 - ice_frac) * ocean_ds['sea_surface_temperature'] + ice_frac * ocean_ds['sea_ice_temperature']
             
             device = gen_data[self.surface_temperature_name].device
             sst_array = torch.tensor(sst_da.values, dtype=torch.float32).to(device)
