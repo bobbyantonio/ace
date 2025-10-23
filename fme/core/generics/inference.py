@@ -93,6 +93,7 @@ def run_inference(
     aggregator: InferenceAggregatorABC[PS, SD],
     writer: WriterABC[PS, SD] | None = None,
     record_logs: Callable[[InferenceLogs], None] | None = None,
+    restart_filename: str = "restart.nc",
 ):
     """Run extended inference loop given initial condition and forcing data.
 
@@ -138,4 +139,4 @@ def run_inference(
         
         with timer.context("data_writer"):
             prognostic_state = looper.get_prognostic_state()
-            writer.write(prognostic_state, "restart.nc")
+            writer.write(prognostic_state, restart_filename)

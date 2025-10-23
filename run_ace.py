@@ -265,8 +265,6 @@ if __name__ == '__main__':
                         help='Number of autoregressive steps to run for every initialisation date')
     parser.add_argument('--start-datetime', type=str, required=True,
                         help='First target date, in YYYYMMDD-HH format')
-    parser.add_argument('--end-datetime', type=str, default=None,
-                        help='Final target date, in YYYYMMDD-HH format')
     parser.add_argument('--steps-between-initialisations', type=int, default=1,
                         help='Number of forecast steps between initialisations')
     parser.add_argument('--num-ensemble-members', type=int, default=1,
@@ -292,12 +290,6 @@ if __name__ == '__main__':
     # Parse datetime arguments
     start_datetime = datetime.datetime.strptime(args.start_datetime, '%Y%m%d-%H')
 
-    if args.end_datetime is not None:
-        end_datetime = datetime.datetime.strptime(args.end_datetime, '%Y%m%d-%H')
-    else:
-        end_datetime = start_datetime
-        
-    
     config_overrides = [
         f"experiment_dir={os.path.join(args.output_dir, args.experiment_name)}",
         f"experiment_dir={args.logging_dir}",
@@ -418,6 +410,7 @@ if __name__ == '__main__':
             writer=writer,
             aggregator=aggregator,
             record_logs=None,
+            restart_filename="restart_ace2.nc"
         )
     
     logging.info("Inference complete!")
