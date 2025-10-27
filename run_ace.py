@@ -53,6 +53,10 @@ from fme.ace.inference.evaluator import resolve_variable_metadata, validate_time
 
 StartIndices = InferenceInitialConditionIndices | ExplicitIndices | TimestampList
 
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.INFO)
+
 @dataclasses.dataclass
 class InitialConditionConfig:
     """
@@ -259,7 +263,7 @@ if __name__ == '__main__':
                         help="Path to the inference configuration file")
     parser.add_argument('--era5-dir', type=str,
                         help="Folder containing ERA5 data")
-    parser.add_argument('--experiment-name', type=str, 
+    parser.add_argument('--experiment-name', type=str, default=None,
                         help="Identifying name of experiment")
     parser.add_argument('--num-steps-per-initialisation', type=int, required=True,
                         help='Number of autoregressive steps to run for every initialisation date')
@@ -290,16 +294,27 @@ if __name__ == '__main__':
     # Parse datetime arguments
     start_datetime = datetime.datetime.strptime(args.start_datetime, '%Y%m%d-%H')
 
+    ## Check if restart file exists in output dir; if then use that as IC
+    restart_fp = os.path.join(args.output_dir, 'restart_ace2.nc')
+    if os.path.exists(restart_fp):
+        logger.info(f"Restart file {restart_fp} found, using as initial condition", flush=True)
+        ic_path = restart_fp
+    else:
+        ic_path = os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.strftime('%Y%m%d')}.nc")
+        
     config_overrides = [
-        f"experiment_dir={os.path.join(args.output_dir, args.experiment_name)}",
-        f"experiment_dir={args.logging_dir}",
+        f"experiment_dir={os.path.join(args.output_dir)}",
+        f"logging_dir={args.logging_dir}",
         "n_forward_steps=" + str(args.num_steps_per_initialisation),
         "checkpoint_path=" + os.path.join(args.model_dir, "ace2_era5_ckpt.tar"),
         "stepper_override.ocean.interpolate=False",
-        "initial_condition.path=" + os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.strftime('%Y%m%d')}.nc"),
+        "initial_condition.path=" + ic_path,
         "forcing_loader.dataset.data_path=" + os.path.join(args.model_dir, f"forcing_data_{start_datetime.year}"),
         "forcing_loader.num_data_workers=" + str(2)
         ]
+    
+
+        
     ocean_config_overrides = []
     if args.sst_input == 'coupled':
         ocean_config_overrides += ["stepper_override.ocean.from_file.router_folder=" + args.ocean_model_dir,
@@ -346,7 +361,7 @@ if __name__ == '__main__':
     data_requirements = stepper_config.get_forcing_window_data_requirements(
         n_forward_steps=config.forward_steps_in_memory
     )
-    logging.info("Loading initial condition data")
+    logger.info("Loading initial condition data")
     inital_condition_ds = config.initial_condition.get_dataset()
 
     initial_condition = get_initial_condition(
@@ -359,7 +374,7 @@ if __name__ == '__main__':
 
     # This wraps around a Torch Data loader, so the best thing might be to construct
     # a different data loader. Or else mock the call to __getitem__ with data loader?
-    logging.info("Initializing forcing data loader")
+    logger.info("Initializing forcing data loader")
     data = get_forcing_data(
         config=config.forcing_loader,
         total_forward_steps=config.n_forward_steps,
@@ -403,7 +418,7 @@ if __name__ == '__main__':
     else:
         writer = None
 
-    logging.info("Starting inference")
+    logger.info("Starting inference")
     run_inference(
             predict=stepper.predict_paired,
             data=data,
@@ -413,4 +428,4 @@ if __name__ == '__main__':
             restart_filename="restart_ace2.nc"
         )
     
-    logging.info("Inference complete!")
+    logger.info("Inference complete!")
