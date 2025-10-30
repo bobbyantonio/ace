@@ -293,7 +293,7 @@ if __name__ == '__main__':
     
     # Parse datetime arguments
     start_datetime = datetime.datetime.strptime(args.start_datetime, '%Y%m%d-%H')
-
+    
     ## Check if restart file exists in output dir; if then use that as IC
     restart_fp = os.path.join(args.output_dir, 'restart_ace2.nc')
     if os.path.exists(restart_fp):
