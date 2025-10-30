@@ -297,9 +297,10 @@ if __name__ == '__main__':
     ## Check if restart file exists in output dir; if then use that as IC
     restart_fp = os.path.join(args.output_dir, 'restart_ace2.nc')
     if os.path.exists(restart_fp):
-        logger.info(f"Restart file {restart_fp} found, using as initial condition", flush=True)
+        logger.info(f"Restart file {restart_fp} found, using as initial condition")
         ic_path = restart_fp
     else:
+        logger.info(f"No restart file found at {restart_fp}, using initial condition from model directory")
         ic_path = os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.strftime('%Y%m%d')}.nc")
         
     config_overrides = [
@@ -348,7 +349,7 @@ if __name__ == '__main__':
                                     'file_suffix': f"_{args.model_name}_nemo",
                                     'parameter_name_in_file': 'sea_ice_fraction',
                                     'parameter_name': 'sea_ice_fraction',
-                                    'polling_timeout': 300,
+                                    'polling_timeout': 600,
                                     'file_mask_fraction_name': 'sea_surface_temperature'
                                    }
         }
