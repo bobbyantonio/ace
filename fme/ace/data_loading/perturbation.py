@@ -169,7 +169,11 @@ class FromFileConfig(PerturbationConfig):
         ds_at_init_time = polling2.poll(lambda: xr.load_dataset(f"{self.data_directory}/{self.file_prefix}_{int((init_dt * 1e-9) / 3600)}h{self.file_suffix}.nc"),
                         ignore_exceptions=(IOError, ValueError, FileNotFoundError),
                         timeout=self.polling_timeout,
-                        step=0.1).isel(time=0).transpose('latitude', 'longitude')
+                        step=0.1)
+        if 'time' in ds_at_init_time.dims:
+            ds_at_init_time = ds_at_init_time.isel(time=0)
+        
+        ds_at_init_time = ds_at_init_time.transpose('latitude', 'longitude')
         
         # Create mask; this is because ACE forcing data seems to have non-zero sea ice fraction over land, and removing this may cause issues.
         mask_da = ~np.isnan(ds_at_init_time[self.file_mask_fraction_name])
