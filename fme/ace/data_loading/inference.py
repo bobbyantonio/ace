@@ -213,7 +213,7 @@ class InferenceDataset(torch.utils.data.Dataset):
         self._perturbations = config.perturbations
         self._n_initial_conditions = config.n_initial_conditions
         
-        self._start_datetime = self._dataset.all_times[0]
+        self._start_datetime = self._dataset.all_times[config.start_indices.list[0]]
         self._end_datetime = self._dataset.all_times[-1]
         
         if isinstance(config.start_indices, TimestampList):

@@ -293,11 +293,11 @@ if __name__ == '__main__':
     
     # Parse datetime arguments
     start_datetime = datetime.datetime.strptime(args.start_datetime, '%Y%m%d-%H')
-
+    
     ## Check if restart file exists in output dir; if then use that as IC
     restart_fp = os.path.join(args.output_dir, 'restart_ace2.nc')
     if os.path.exists(restart_fp):
-        logger.info(f"Restart file {restart_fp} found, using as initial condition", flush=True)
+        logger.info(f"Restart file {restart_fp} found, using as initial condition")
         ic_path = restart_fp
     else:
         ic_path = os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.strftime('%Y%m%d')}.nc")
