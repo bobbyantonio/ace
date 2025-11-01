@@ -251,15 +251,19 @@ class InferenceConfig:
 if __name__ == '__main__':
     
     parser = ArgumentParser()
-    parser.add_argument('--output-dir', type=str, default=None,
+    parser.add_argument('--output-dir', type=str, required=True,
                         help="Folder to save to")
     parser.add_argument('--model-name', type=str, default='ace2',
                         help="String to identify model")
     parser.add_argument('--logging-dir', type=str, default=None,
                         help="Folder to save to")
-    parser.add_argument('--model-dir', type=str,
+    parser.add_argument('--model-dir', type=str, required=True,
                         help="Folder containing model data")
-    parser.add_argument('--inference-config', type=str,
+    parser.add_argument('--forcing-data-dir', type=str, required=True,
+                        help="Folder containing forcing data")
+    parser.add_argument('--initial-condition-path', type=str, required=True,
+                        help="Path to initial condition file")
+    parser.add_argument('--inference-config', type=str, required=True,
                         help="Path to the inference configuration file")
     parser.add_argument('--era5-dir', type=str,
                         help="Folder containing ERA5 data")
@@ -294,14 +298,9 @@ if __name__ == '__main__':
     # Parse datetime arguments
     start_datetime = datetime.datetime.strptime(args.start_datetime, '%Y%m%d-%H')
     
-    ## Check if restart file exists in output dir; if then use that as IC
-    restart_fp = os.path.join(args.output_dir, 'restart_ace2.nc')
-    if os.path.exists(restart_fp):
-        logger.info(f"Restart file {restart_fp} found, using as initial condition")
-        ic_path = restart_fp
-    else:
-        logger.info(f"No restart file found at {restart_fp}, using initial condition from model directory")
-        ic_path = os.path.join(args.model_dir, 'initial_conditions', f"ic_{start_datetime.strftime('%Y%m%d')}.nc")
+    ## Check if initial condition file exists
+    if not os.path.exists(args.initial_condition_path):
+        raise ValueError(f"Initial condition file {args.initial_condition_path} does not exist")
         
     config_overrides = [
         f"experiment_dir={os.path.join(args.output_dir)}",
@@ -309,8 +308,8 @@ if __name__ == '__main__':
         "n_forward_steps=" + str(args.num_steps_per_initialisation),
         "checkpoint_path=" + os.path.join(args.model_dir, "ace2_era5_ckpt.tar"),
         "stepper_override.ocean.interpolate=False",
-        "initial_condition.path=" + ic_path,
-        "forcing_loader.dataset.data_path=" + os.path.join(args.model_dir, f"forcing_data_{start_datetime.year}"),
+        "initial_condition.path=" + args.initial_condition_path,
+        "forcing_loader.dataset.data_path=" + args.forcing_data_dir,
         "forcing_loader.num_data_workers=" + str(2)
         ]
     
