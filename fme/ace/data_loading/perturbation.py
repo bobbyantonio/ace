@@ -151,6 +151,7 @@ class FromFileConfig(PerturbationConfig):
     file_mask_fraction_name: str
     polling_timeout: int = 600  # seconds
     file_suffix: str = ""
+    coupling_test: bool = False
 
     def apply_perturbation(
         self,
@@ -183,7 +184,13 @@ class FromFileConfig(PerturbationConfig):
         replacement_tensor = torch.tensor(ds_at_init_time[self.parameter_name_in_file].fillna(0.0).values, device=data[self.parameter_name].device, dtype=data[self.parameter_name].dtype)
         replacement_tensor = replacement_tensor.expand(data[self.parameter_name].shape)
         
+        if self.coupling_test:
+            # Artificially set sea ice to zero to test coupling
+            replacement_tensor *= 0.0
+        
         data[self.parameter_name] = torch.where(mask, replacement_tensor, data[self.parameter_name])
+
+
 
 @PerturbationSelector.register("greens_function")
 @dataclasses.dataclass

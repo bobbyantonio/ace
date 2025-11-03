@@ -292,7 +292,8 @@ if __name__ == '__main__':
     parser.add_argument('--flux-model-config', type=str, default=None)
     parser.add_argument('--ocean-model-dir', type=str, default=None,
                         help='Directory in which ocean model is running')
-    parser.add_argument('--coupling-test', action='store_true')
+    parser.add_argument('--sst-coupling-test', action='store_true')
+    parser.add_argument('--sea-ice-coupling-test', action='store_true')
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
     
@@ -315,7 +316,6 @@ if __name__ == '__main__':
         ]
     
 
-        
     ocean_config_overrides = []
     if args.sst_input == 'coupled':
         ocean_config_overrides += ["stepper_override.ocean.from_file.router_folder=" + args.ocean_model_dir,
@@ -325,8 +325,8 @@ if __name__ == '__main__':
                                    "stepper_override.ocean.from_file.grid_file_path=" + os.path.join(args.model_dir, 'grid.nc'),
                                    f"stepper_override.ocean.from_file.file_suffix=_{args.model_name}_nemo",
                                    ]
-        if args.coupling_test:
-            ocean_config_overrides += ["stepper_override.ocean.from_file.coupling_test=True"]
+        if args.sst_coupling_test:
+            ocean_config_overrides += ["stepper_override.ocean.from_file.test_coupling=True"]
 
     
     config_overrides += ocean_config_overrides
@@ -352,7 +352,8 @@ if __name__ == '__main__':
                                     'parameter_name_in_file': 'sea_ice_fraction',
                                     'parameter_name': 'sea_ice_fraction',
                                     'polling_timeout': 600,
-                                    'file_mask_fraction_name': 'sea_surface_temperature'
+                                    'file_mask_fraction_name': 'sea_surface_temperature',
+                                    'test_coupling': args.sea_ice_coupling_test
                                    }
         }
         

@@ -48,6 +48,7 @@ class FromFileOceanConfig:
     polling_timeout: int = 60*10  # 10 minutes
     sea_ice_fraction_name: str = None
     file_suffix: str = ""
+    test_coupling: bool = False
     
 
 @dataclasses.dataclass
@@ -130,6 +131,7 @@ class Ocean:
             self.file_prefix = config.from_file.file_prefix
             self.file_suffix = config.from_file.file_suffix
             self.grid_da = xr.load_dataarray(config.from_file.grid_file_path)
+            self.test_coupling = getattr(config.from_file, 'test_coupling', False)
             
         self.timestep = timestep
         self.timestep_hrs = int(self.timestep.seconds / 3600)
@@ -153,6 +155,7 @@ class Ocean:
         if self.type == "prescribed":
             next_step_temperature = target_data[self.surface_temperature_name]
             prescriber_dict = {self.surface_temperature_name: next_step_temperature}
+            
         elif self.type == "slab":
             temperature_tendency = mixed_layer_temperature_tendency(
                 AtmosphereData(gen_data).net_surface_energy_flux_without_frozen_precip,
@@ -189,7 +192,13 @@ class Ocean:
             sst_da = (1 - ice_frac) * ocean_ds['sea_surface_temperature'] + ice_frac * ocean_ds['sea_ice_temperature']
             
             device = gen_data[self.surface_temperature_name].device
+            
             sst_array = torch.tensor(sst_da.values, dtype=torch.float32).to(device)
+                
+            if self.test_coupling:
+                # Artificially increase SST by 10K to test coupling
+                sst_array += 10.0 
+                
             sst_array = sst_array[None, :, :] # Add batch dimension
             
             # Make sure there aren't any null values in the SST (will be interpolated )
