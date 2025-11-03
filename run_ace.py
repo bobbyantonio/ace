@@ -292,6 +292,7 @@ if __name__ == '__main__':
     parser.add_argument('--flux-model-config', type=str, default=None)
     parser.add_argument('--ocean-model-dir', type=str, default=None,
                         help='Directory in which ocean model is running')
+    parser.add_argument('--coupling-test', action='store_true')
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
     
@@ -324,6 +325,8 @@ if __name__ == '__main__':
                                    "stepper_override.ocean.from_file.grid_file_path=" + os.path.join(args.model_dir, 'grid.nc'),
                                    f"stepper_override.ocean.from_file.file_suffix=_{args.model_name}_nemo",
                                    ]
+        if args.coupling_test:
+            ocean_config_overrides += ["stepper_override.ocean.from_file.coupling_test=True"]
 
     
     config_overrides += ocean_config_overrides
