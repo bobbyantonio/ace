@@ -46,6 +46,7 @@ class FromFileOceanConfig:
     file_prefix: str
     grid_file_path: str
     polling_timeout: int = 60*10  # 10 minutes
+    first_step_polling_timeout: int = 60*10  # 10 minutes
     sea_ice_fraction_name: str = None
     file_suffix: str = ""
     test_coupling: bool = False
@@ -127,6 +128,7 @@ class Ocean:
             self.router_folder = config.from_file.router_folder
             self.timestep_counter = 0
             self.polling_timeout = config.from_file.polling_timeout
+            self.first_step_polling_timeout = getattr(config.from_file, 'first_step_polling_timeout', config.from_file.polling_timeout)
             self.sea_ice_fraction_name = config.from_file.sea_ice_fraction_name
             self.file_prefix = config.from_file.file_prefix
             self.file_suffix = config.from_file.file_suffix
@@ -180,7 +182,7 @@ class Ocean:
             # Load ocean data. Note, this must be on a 180 x 360 grid.
             ocean_ds = polling2.poll(lambda: xr.load_dataset(os.path.join(self.router_folder, f"{self.file_prefix}_{(self.timestep_counter + 1) * self.timestep_hrs}h{self.file_suffix}.nc")),
                     ignore_exceptions=(IOError, ValueError, FileNotFoundError),
-                    timeout=self.polling_timeout,
+                    timeout=self.first_step_polling_timeout if self.timestep_counter == 0 else self.polling_timeout,
                     step=0.1).isel(time=0).transpose('latitude', 'longitude')
 
             self.timestep_counter += 1

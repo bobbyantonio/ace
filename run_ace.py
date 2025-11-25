@@ -294,6 +294,10 @@ if __name__ == '__main__':
                         help='Directory in which ocean model is running')
     parser.add_argument('--sst-coupling-test', action='store_true')
     parser.add_argument('--sea-ice-coupling-test', action='store_true')
+    parser.add_argument('--polling-timeout', type=int, default=600,
+                        help='Timeout in seconds for polling ocean model output files')
+    parser.add_argument('--first-step-polling-timeout', type=int, default=600,
+                        help='Timeout in seconds for polling ocean model output files on first step')
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
     
@@ -303,7 +307,8 @@ if __name__ == '__main__':
     ## Check if initial condition file exists
     if not os.path.exists(args.initial_condition_path):
         raise ValueError(f"Initial condition file {args.initial_condition_path} does not exist")
-        
+    
+    logger.info(f"Using initial condition file: {args.initial_condition_path}")
     config_overrides = [
         f"experiment_dir={os.path.join(args.output_dir)}",
         f"logging_dir={args.logging_dir}",
@@ -319,7 +324,8 @@ if __name__ == '__main__':
     ocean_config_overrides = []
     if args.sst_input == 'coupled':
         ocean_config_overrides += ["stepper_override.ocean.from_file.router_folder=" + args.ocean_model_dir,
-                                   "stepper_override.ocean.from_file.polling_timeout=600",
+                                   f"stepper_override.ocean.from_file.polling_timeout={args.polling_timeout}",
+                                   f"stepper_override.ocean.from_file.first_step_polling_timeout={args.first_step_polling_timeout}",
                                    "stepper_override.ocean.from_file.sea_ice_fraction_name=sea_ice_fraction",
                                    "stepper_override.ocean.from_file.file_prefix=oce2atm",
                                    "stepper_override.ocean.from_file.grid_file_path=" + os.path.join(args.model_dir, 'grid.nc'),
@@ -351,7 +357,8 @@ if __name__ == '__main__':
                                     'file_suffix': f"_{args.model_name}_nemo",
                                     'parameter_name_in_file': 'sea_ice_fraction',
                                     'parameter_name': 'sea_ice_fraction',
-                                    'polling_timeout': 600,
+                                    'polling_timeout': args.polling_timeout,
+                                    'first_step_polling_timeout': args.first_step_polling_timeout,
                                     'file_mask_fraction_name': 'sea_surface_temperature',
                                     'test_coupling': args.sea_ice_coupling_test
                                    }
