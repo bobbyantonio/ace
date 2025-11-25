@@ -170,7 +170,7 @@ class FromFileConfig(PerturbationConfig):
         # as we make the assumption that we can use the value at init time for the target time.
         ds_at_init_time = polling2.poll(lambda: xr.load_dataset(f"{self.data_directory}/{self.file_prefix}_{int((init_dt * 1e-9) / 3600)}h{self.file_suffix}.nc"),
                         ignore_exceptions=(IOError, ValueError, FileNotFoundError),
-                        timeout=self.polling_timeout,
+                        timeout=self.first_step_polling_timeout if init_dt == 0 else self.polling_timeout,
                         step=0.1)
         if 'time' in ds_at_init_time.dims:
             ds_at_init_time = ds_at_init_time.isel(time=0)
