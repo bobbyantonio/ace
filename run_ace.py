@@ -278,12 +278,9 @@ if __name__ == '__main__':
     parser.add_argument('--num-ensemble-members', type=int, default=1,
                         help='Number of ensemble members to use')
     parser.add_argument('--output-levels', type=int, nargs='+', default=[1000,850,500],
-                        help="Which pressure levels to write to output. Needs to be a comma separated list, or -1 for all 37 levels.")  
-    parser.add_argument('--output-vars', type=str, nargs='+', default=[
-                                                                        '2m_temperature', 'total_precipitation_6hr', '10m_v_component_of_wind', 
-                                                                        '10m_u_component_of_wind', 'specific_humidity', 'temperature', 'geopotential'
-                                                                        ],
-                        help="Which variables to write to output. Needs to be a space-separaeted list of values, or 'all' for all variables.")
+                        help="Which pressure levels to write to output. Needs to be a comma separated list, or -1 for all 37 levels.") 
+    parser.add_argument('--output-vars', type=str, nargs='+', default=["surface_temperature", "TMP2m"],
+                        help="Which variables to write to output. Needs to be a space-separaeted list of values.")
     parser.add_argument('--save-every-n-steps', default=1, type=int,
                         help='Number of steps between saving outputs')
     parser.add_argument('--sst-input', default=None, choices=['forced', 'coupled'])
@@ -310,14 +307,15 @@ if __name__ == '__main__':
     
     logger.info(f"Using initial condition file: {args.initial_condition_path}")
     config_overrides = [
-        f"experiment_dir={os.path.join(args.output_dir)}",
+        f"experiment_dir={os.path.join(args.output_dir, args.experiment_name)}",
         f"logging_dir={args.logging_dir}",
         "n_forward_steps=" + str(args.num_steps_per_initialisation),
         "checkpoint_path=" + os.path.join(args.model_dir, "ace2_era5_ckpt.tar"),
         "stepper_override.ocean.interpolate=False",
         "initial_condition.path=" + args.initial_condition_path,
         "forcing_loader.dataset.data_path=" + args.forcing_data_dir,
-        "forcing_loader.num_data_workers=" + str(2)
+        "forcing_loader.num_data_workers=" + str(2),
+        "data_writer.names=" + str(args.output_vars),
         ]
     
 
