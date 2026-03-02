@@ -1,5 +1,8 @@
 docs/available_modules.rst
 docs/_build
+logs/*
+*.nc
+*.ipynb
 
 *.npy
 .vscode
