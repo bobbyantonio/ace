@@ -18,8 +18,6 @@ from xarray.coding.times import CFDatetimeCoder
 
 from fme.core.ocean_derived_variables import sea_ice_fraction
 
-sys.path.append('/home/a/antonio/repos/ace')
-
 import fme
 import fme.core.logging_utils as logging_utils
 from fme.ace.aggregator.inference import InferenceAggregatorConfig
