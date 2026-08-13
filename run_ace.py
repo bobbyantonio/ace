@@ -284,6 +284,8 @@ if __name__ == '__main__':
     parser.add_argument('--save-every-n-steps', default=1, type=int,
                         help='Number of steps between saving outputs')
     parser.add_argument('--sst-input', default=None, choices=['forced', 'coupled'])
+    parser.add_argument('--sst-additive-perturbation', default=None, type=float,
+                        help='Additive perturbation to SST, applied to initial condition and forcing data')
     parser.add_argument('--flux-model-path', type=str, default=None)
     parser.add_argument('--flux-data-config', type=str, default=None)
     parser.add_argument('--flux-model-config', type=str, default=None)
@@ -304,6 +306,9 @@ if __name__ == '__main__':
     ## Check if initial condition file exists
     if not os.path.exists(args.initial_condition_path):
         raise ValueError(f"Initial condition file {args.initial_condition_path} does not exist")
+    
+    if args.sst_additive_perturbation is not None and args.sst_input == 'coupled':
+        raise ValueError("Cannot use additive perturbation with coupled SST input")
     
     logger.info(f"Using initial condition file: {args.initial_condition_path}")
     config_overrides = [
@@ -362,7 +367,18 @@ if __name__ == '__main__':
                                    }
         }
         
-        config.forcing_loader.perturbations.perturbation_list = [dacite.from_dict(data_class=PerturbationSelector, data=perturbation_config, config=dacite.Config(strict=True)).build()]      
+        config.forcing_loader.perturbations.perturbation_list = [dacite.from_dict(data_class=PerturbationSelector, data=perturbation_config, config=dacite.Config(strict=True)).build()]
+    
+    
+    elif args.sst_additive_perturbation is not None:
+            perturbation_config = {'type': 'constant', 
+                                   'config': 
+                                       {'parameter_name': 'surface_temperature',
+                                        'mask_fraction_name': 'ocean_fraction',
+                                        'amplitude': args.sst_additive_perturbation
+                                       }
+            }
+            config.forcing_loader.perturbations.perturbation_list = [dacite.from_dict(data_class=PerturbationSelector, data=perturbation_config, config=dacite.Config(strict=True)).build()]  
     
     prepare_directory(config.experiment_dir, config_data)
 

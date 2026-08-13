@@ -1,0 +1,32 @@
+experiment_dir: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/predictions/samudrace_70yr
+n_coupled_steps: 5120 # 200 days
+coupled_steps_in_memory: 20
+checkpoint_path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/samudrACE_CM4_piControl_ckpt.tar
+data_writer:
+  ocean:
+    save_prediction_files: false
+    save_monthly_files: true
+  atmosphere:
+    save_prediction_files: false
+    save_monthly_files: true
+forcing_loader:
+  atmosphere:
+    dataset:
+      data_path: /network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/forcing_data/samudrace
+      file_pattern: forcing_0311.nc
+      n_repeats: 71
+  num_data_workers: 1
+initial_condition:
+  ocean:
+    path: "/network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/initial_conditions/samudrace/0311-01-01T00:00:00/ocean/initial_condition.nc"
+  atmosphere:
+    path: "/network/group/aopp/predict/HMC005_ANTONIO_EERIE/ace2_data/initial_conditions/samudrace/0311-01-01T00:00:00/atmosphere/initial_condition.nc"
+  start_indices:
+    first: 0
+    n_initial_conditions: 1
+logging:
+  log_to_screen: true
+  log_to_wandb: false
+  log_to_file: true
+  project: project_name
+  entity: your_wandb_entity
